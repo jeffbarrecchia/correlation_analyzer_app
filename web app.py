@@ -117,6 +117,6 @@ if file:
             except:
                 st.warning("⚠️ Could not compute correlation for the selected pair.")
 
-except Exception as e:
-    st.error(f"❌ Error loading file: {str(e)}")
+    except Exception as e:
+        st.error(f"❌ Error loading file: {str(e)}")
 
