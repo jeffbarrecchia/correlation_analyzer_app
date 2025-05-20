@@ -4,7 +4,6 @@ Created on Tue May 20 13:07:41 2025
 
 @author: jeffb
 """
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -58,7 +57,7 @@ if file:
         show_heatmap = st.sidebar.checkbox("🖼️ Show heatmap", True)
         annotate_heatmap = st.sidebar.checkbox("🔢 Annotate heatmap", False)
 
-        # --- Perform analysis ---
+        # --- Perform correlation analysis ---
         if y_var:
             st.subheader(f"Correlations with '{y_var}'")
             x_vars = [col for col in numeric_columns if col != y_var]
@@ -71,7 +70,7 @@ if file:
                     results.append((col, r, p))
                 except:
                     continue
-                progress.progress((i+1)/len(x_vars))
+                progress.progress((i + 1) / len(x_vars))
 
             if not results:
                 st.error("No valid correlations found.")
@@ -97,5 +96,27 @@ if file:
                 ax.set_title(f"Correlation Heatmap: '{y_var}' vs Top Variables")
                 st.pyplot(fig)
 
-    except Exception as e:
-        st.error(f"❌ Error loading file: {str(e)}")
+        # --- Scatterplot Generator ---
+        st.subheader("📈 Interactive Scatterplot Generator")
+
+        scatter_x = st.selectbox("Select X variable", numeric_columns, key="scatter_x")
+        scatter_y = st.selectbox("Select Y variable", numeric_columns, index=numeric_columns.index(y_var) if y_var in numeric_columns else 0, key="scatter_y")
+
+        if scatter_x and scatter_y and scatter_x != scatter_y:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
+            ax.set_xlabel(scatter_x)
+            ax.set_ylabel(scatter_y)
+            ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
+            st.pyplot(fig)
+
+            # Correlation stats
+            try:
+                r_val, p_val = pearsonr(df_encoded[scatter_x], df_encoded[scatter_y])
+                st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
+            except:
+                st.warning("⚠️ Could not compute correlation for the selected pair.")
+
+except Exception as e:
+    st.error(f"❌ Error loading file: {str(e)}")
+
