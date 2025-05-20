@@ -4,7 +4,8 @@ Created on Tue May 20 13:07:41 2025
 
 @author: jeffb
 """
-
+from lazypredict.Supervised import LazyRegressor
+from sklearn.preprocessing import StandardScaler
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -219,7 +220,37 @@ if file:
                                 st.download_button("Download predictions CSV", csv, "predictions.csv")
                             except Exception as e:
                                 st.error(f"Error during prediction: {e}")
+                                
+            with st.expander("🤖 Auto Model Selection & Benchmarking"):
+                st.markdown("This will run multiple regression models and show performance comparison. Feature scaling is applied.")
 
+                if predictors:
+                    try:
+                        X = df_encoded[predictors]
+                        y = df_encoded[y_var]
+
+                        # Train-test split
+                        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+                        # Standardize features
+                        scaler = StandardScaler()
+                        X_train_scaled = scaler.fit_transform(X_train)
+                        X_test_scaled = scaler.transform(X_test)
+
+                        # Run LazyRegressor
+                        reg = LazyRegressor(verbose=0, ignore_warnings=True, custom_metric=None)
+                        models, predictions = reg.fit(X_train_scaled, X_test_scaled, y_train, y_test)
+
+                        st.success("✅ Model benchmarking complete!")
+                        st.write("### 📋 Model Comparison")
+                        st.dataframe(models)
+
+                        best_model_name = models.index[0]
+                        st.write(f"🔍 Best model: **{best_model_name}** (based on R²)")
+                    except Exception as e:
+                        st.error(f"Error during auto model selection: {e}")
+
+            
     except Exception as e:
         st.error(f"❌ Error loading file: {str(e)}")
 
