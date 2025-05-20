@@ -110,23 +110,23 @@ if file:
                 scatter_y = st.selectbox("Select Y variable", numeric_columns, index=numeric_columns.index(y_var) if y_var in numeric_columns else 0, key="scatter_y")
                 show_regression = st.checkbox("Show regression line", value=False)
 
-        if scatter_x and scatter_y and scatter_x != scatter_y:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            if show_regression:
-                sns.regplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax, scatter_kws={"s": 50})
-            else:
-                sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
-            ax.set_xlabel(scatter_x)
-            ax.set_ylabel(scatter_y)
-            ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
-            st.pyplot(fig)
+                if scatter_x and scatter_y and scatter_x != scatter_y:
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    if show_regression:
+                        sns.regplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax, scatter_kws={"s": 50})
+                    else:
+                        sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
+                    ax.set_xlabel(scatter_x)
+                    ax.set_ylabel(scatter_y)
+                    ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
+                    st.pyplot(fig)
 
-        # Correlation stats
-        try:
-            r_val, p_val = pearsonr(df_encoded[scatter_x], df_encoded[scatter_y])
-            st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
-        except:
-            st.warning("⚠️ Could not compute correlation for the selected pair.")
+                    # Correlation stats
+                    try:
+                        r_val, p_val = pearsonr(df_encoded[scatter_x], df_encoded[scatter_y])
+                        st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
+                    except:
+                        st.warning("⚠️ Could not compute correlation for the selected pair.")
 
 
             # --- Predictive Modeling ---
