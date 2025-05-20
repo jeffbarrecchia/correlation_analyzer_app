@@ -38,6 +38,8 @@ if file:
 
         # Keep track of original datetime columns
         datetime_cols = df_processed.select_dtypes(include=["datetime64", "datetime64[ns]"]).columns.tolist()
+        for col in datetime_cols:
+            df_processed[col + "_ts"] = pd.to_datetime(df_processed[col], errors = 'coerce'.map(lambda x: x.timestamp() if pd.notnull(x) else np.nan)
 
         # Convert object columns to datetime where possible
         for col in df_processed.columns:
@@ -154,7 +156,13 @@ if file:
             with st.expander("Train a simple regression model"):
                 st.markdown("Select one or more predictor variables to train a linear regression model to predict the Y variable.")
 
-                predictors = st.multiselect("Select predictor(s)", [col for col in numeric_columns if col != y_var])
+                pretty_labels = {col: col.replace("_ts", " (Date)") for col in numeric_columns}
+                predictor_display = [pretty_labels[col] for col in numeric_columns if col != y_var]
+                col_to_actual = {v: k for k, v in pretty_labels.items()}
+    
+                selected_labels = st.multiselect("Select predictor(s)", predictor_display)
+                predictors = [col_to_actual[label] for label in selected_labels]
+
 
                 if predictors:
                     X = df_encoded[predictors]
