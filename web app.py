@@ -15,40 +15,56 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 
-
 st.set_page_config(layout="wide", page_title="Correlation Analyzer")
 
 st.title("📊 CSV/Excel Correlation Analyzer")
-
 st.markdown("Upload a file and select a target variable to see correlations and p-values.")
 
 # --- File uploader ---
 file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xls", "xlsx"])
 
 if file:
-    # --- Load data ---
     try:
+        # Load file
         if file.name.endswith(".csv"):
-            df = pd.read_csv(file)
+            df = pd.read_csv(file, parse_dates=True)
         else:
-            df = pd.read_excel(file)
+            df = pd.read_excel(file, parse_dates=True)
 
         st.success("✅ File loaded successfully.")
 
         # --- Preprocessing ---
-        df_encoded = pd.get_dummies(df, drop_first=True)
+        df_processed = df.copy()
+
+        # Keep track of original datetime columns
+        datetime_cols = df_processed.select_dtypes(include=["datetime64", "datetime64[ns]"]).columns.tolist()
+
+        # Convert object columns to datetime where possible
+        for col in df_processed.columns:
+            if df_processed[col].dtype == "object":
+                try:
+                    converted = pd.to_datetime(df_processed[col])
+                    if not converted.isna().all():
+                        df_processed[col] = converted
+                        datetime_cols.append(col)
+                except:
+                    pass
+
+        df_encoded = pd.get_dummies(df_processed, drop_first=True)
         df_encoded = df_encoded.select_dtypes(include=[np.number])
         df_encoded = df_encoded.loc[:, df_encoded.nunique() > 1]
-        
+
         # Remove ID-like columns
         exclude_cols = ['student_id', 'StudentID', 'ID']
         for col in exclude_cols:
             if col in df_encoded.columns:
                 df_encoded = df_encoded.drop(columns=col)
+
         num_rows = df_encoded.shape[0]
         df_encoded = df_encoded.loc[:, df_encoded.nunique() < num_rows]
 
         numeric_columns = df_encoded.columns.tolist()
+        all_columns = df_processed.columns.tolist()
 
         if not numeric_columns:
             st.warning("No valid numeric columns found after preprocessing.")
@@ -106,28 +122,31 @@ if file:
             with st.expander("📈 Interactive Scatterplot Generator", expanded=False):
                 st.subheader("Interactive Scatterplot Generator")
 
-                scatter_x = st.selectbox("Select X variable", numeric_columns, key="scatter_x")
+                scatter_x = st.selectbox("Select X variable", all_columns, key="scatter_x")
                 scatter_y = st.selectbox("Select Y variable", numeric_columns, index=numeric_columns.index(y_var) if y_var in numeric_columns else 0, key="scatter_y")
                 show_regression = st.checkbox("Show regression line", value=False)
 
                 if scatter_x and scatter_y and scatter_x != scatter_y:
                     fig, ax = plt.subplots(figsize=(8, 6))
-                    if show_regression:
-                        sns.regplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax, scatter_kws={"s": 50})
-                    else:
-                        sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
-                    ax.set_xlabel(scatter_x)
-                    ax.set_ylabel(scatter_y)
-                    ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
-                    st.pyplot(fig)
-
-                    # Correlation stats
                     try:
-                        r_val, p_val = pearsonr(df_encoded[scatter_x], df_encoded[scatter_y])
-                        st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
-                    except:
-                        st.warning("⚠️ Could not compute correlation for the selected pair.")
+                        if show_regression and np.issubdtype(df_processed[scatter_x].dtype, np.number):
+                            sns.regplot(x=df_processed[scatter_x], y=df_encoded[scatter_y], ax=ax, scatter_kws={"s": 50})
+                        else:
+                            sns.scatterplot(x=df_processed[scatter_x], y=df_encoded[scatter_y], ax=ax)
+                        ax.set_xlabel(scatter_x)
+                        ax.set_ylabel(scatter_y)
+                        ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
+                        st.pyplot(fig)
 
+                        # Correlation (only if x is numeric)
+                        if np.issubdtype(df_processed[scatter_x].dtype, np.number):
+                            r_val, p_val = pearsonr(df_processed[scatter_x], df_encoded[scatter_y])
+                            st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
+                        else:
+                            st.info("ℹ️ Correlation not shown for non-numeric X-axis.")
+
+                    except Exception as e:
+                        st.error(f"Error rendering scatterplot: {e}")
 
             # --- Predictive Modeling ---
             st.subheader("📈 Predictive Modeling")
@@ -138,10 +157,6 @@ if file:
                 predictors = st.multiselect("Select predictor(s)", [col for col in numeric_columns if col != y_var])
 
                 if predictors:
-                    from sklearn.model_selection import train_test_split
-                    from sklearn.linear_model import LinearRegression
-                    from sklearn.metrics import mean_squared_error, r2_score
-
                     X = df_encoded[predictors]
                     y = df_encoded[y_var]
 
@@ -176,9 +191,9 @@ if file:
             if 'model' in locals() and predictors:
                 with st.expander("Predict Future Values"):
                     st.markdown("Upload new predictor data (CSV) with the same predictor columns to generate predictions.")
-        
+
                     pred_file = st.file_uploader("Upload predictor CSV for prediction", type=["csv"], key="pred_file")
-        
+
                     if pred_file:
                         pred_df = pd.read_csv(pred_file)
 
@@ -199,7 +214,7 @@ if file:
                             except Exception as e:
                                 st.error(f"Error during prediction: {e}")
 
-
     except Exception as e:
         st.error(f"❌ Error loading file: {str(e)}")
+
 
