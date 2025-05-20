@@ -97,6 +97,50 @@ if file:
                 ax.set_title(f"Correlation Heatmap: '{y_var}' vs Top Variables")
                 st.pyplot(fig)
 
+            # --- Predictive Modeling ---
+            st.subheader("📈 Predictive Modeling")
+
+            with st.expander("Train a simple regression model"):
+            st.markdown("Select one or more predictor variables to train a linear regression model to predict the Y variable.")
+
+            predictors = st.multiselect("Select predictor(s)", [col for col in numeric_columns if col != y_var])
+
+            if predictors:
+                from sklearn.model_selection import train_test_split
+                from sklearn.linear_model import LinearRegression
+                from sklearn.metrics import mean_squared_error, r2_score
+
+                X = df_encoded[predictors]
+                y = df_encoded[y_var]
+
+                try:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+                    model = LinearRegression()
+                    model.fit(X_train, y_train)
+
+                    y_pred = model.predict(X_test)
+
+                    st.success("✅ Model trained successfully!")
+
+                    # Display metrics
+                    st.write("### Performance Metrics")
+                    st.write(f"**R² Score:** {r2_score(y_test, y_pred):.4f}")
+                    st.write(f"**Mean Squared Error (MSE):** {mean_squared_error(y_test, y_pred):.4f}")
+
+                    # Optional: Scatterplot of predictions vs actuals
+                    fig2, ax2 = plt.subplots()
+                    ax2.scatter(y_test, y_pred, alpha=0.6)
+                    ax2.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
+                    ax2.set_xlabel("Actual Values")
+                    ax2.set_ylabel("Predicted Values")
+                    ax2.set_title("Actual vs Predicted")
+                    st.pyplot(fig2)
+
+                except Exception as e:
+                    st.error(f"Error training model: {e}")
+
+
         # --- Scatterplot Generator ---
         st.subheader("📈 Interactive Scatterplot Generator")
 
