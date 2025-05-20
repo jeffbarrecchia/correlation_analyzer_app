@@ -92,14 +92,42 @@ if file:
 
             # --- Heatmap ---
             if show_heatmap:
-                st.subheader("Heatmap of Top Correlated Variables")
-                top_vars = [col for col, _, _ in top_results]
-                corr_data = df_encoded[[y_var] + top_vars].corr().fillna(0)
+                with st.expander("📊 Heatmap of Top Correlated Variables", expanded=False):
+                    st.subheader("Heatmap of Top Correlated Variables")
+                    top_vars = [col for col, _, _ in top_results]
+                    corr_data = df_encoded[[y_var] + top_vars].corr().fillna(0)
 
-                fig, ax = plt.subplots(figsize=(8, 6))
-                sns.heatmap(corr_data, annot=annotate_heatmap, cmap="coolwarm", center=0, ax=ax)
-                ax.set_title(f"Correlation Heatmap: '{y_var}' vs Top Variables")
-                st.pyplot(fig)
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    sns.heatmap(corr_data, annot=annotate_heatmap, cmap="coolwarm", center=0, ax=ax)
+                    ax.set_title(f"Correlation Heatmap: '{y_var}' vs Top Variables")
+                    st.pyplot(fig)
+
+            # --- Scatterplot Generator ---
+            with st.expander("📈 Interactive Scatterplot Generator", expanded=False):
+                st.subheader("Interactive Scatterplot Generator")
+
+                scatter_x = st.selectbox("Select X variable", numeric_columns, key="scatter_x")
+                scatter_y = st.selectbox("Select Y variable", numeric_columns, index=numeric_columns.index(y_var) if y_var in numeric_columns else 0, key="scatter_y")
+                show_regression = st.checkbox("Show regression line", value=False)
+
+    if scatter_x and scatter_y and scatter_x != scatter_y:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        if show_regression:
+            sns.regplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax, scatter_kws={"s": 50})
+        else:
+            sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
+        ax.set_xlabel(scatter_x)
+        ax.set_ylabel(scatter_y)
+        ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
+        st.pyplot(fig)
+
+        # Correlation stats
+        try:
+            r_val, p_val = pearsonr(df_encoded[scatter_x], df_encoded[scatter_y])
+            st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
+        except:
+            st.warning("⚠️ Could not compute correlation for the selected pair.")
+
 
             # --- Predictive Modeling ---
             st.subheader("📈 Predictive Modeling")
