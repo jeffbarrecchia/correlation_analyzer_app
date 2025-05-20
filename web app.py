@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue May 20 13:07:41 2025
 
-@author: jeffb
-"""
 from lazypredict.Supervised import LazyRegressor
 from sklearn.preprocessing import StandardScaler
 import streamlit as st
@@ -37,10 +33,10 @@ if file:
         # --- Preprocessing ---
         df_processed = df.copy()
 
-        # Keep track of original datetime columns
+        # Detect datetime columns (keep track)
         datetime_cols = df_processed.select_dtypes(include=["datetime64", "datetime64[ns]"]).columns.tolist()
 
-        # Convert object columns to datetime where possible
+        # Convert object columns to datetime if possible
         for col in df_processed.columns:
             if df_processed[col].dtype == "object":
                 try:
@@ -51,16 +47,20 @@ if file:
                 except:
                     pass
 
+        # Encode categorical columns with get_dummies
         df_encoded = pd.get_dummies(df_processed, drop_first=True)
+
+        # Keep only numeric columns with >1 unique value
         df_encoded = df_encoded.select_dtypes(include=[np.number])
         df_encoded = df_encoded.loc[:, df_encoded.nunique() > 1]
 
-        # Remove ID-like columns
+        # Remove typical ID columns if present
         exclude_cols = ['student_id', 'StudentID', 'ID']
         for col in exclude_cols:
             if col in df_encoded.columns:
                 df_encoded = df_encoded.drop(columns=col)
 
+        # Remove columns with unique values equal to number of rows (likely IDs)
         num_rows = df_encoded.shape[0]
         df_encoded = df_encoded.loc[:, df_encoded.nunique() < num_rows]
 
@@ -79,7 +79,7 @@ if file:
         show_heatmap = st.sidebar.checkbox("🖼️ Show heatmap", True)
         annotate_heatmap = st.sidebar.checkbox("🔢 Annotate heatmap", False)
 
-        # --- Perform correlation analysis ---
+        # --- Correlation analysis ---
         if y_var:
             st.subheader(f"Correlations with '{y_var}'")
             x_vars = [col for col in numeric_columns if col != y_var]
@@ -101,13 +101,13 @@ if file:
             results.sort(key=lambda x: abs(x[1]), reverse=True)
             top_results = results[:5]
 
-            # --- Display results ---
+            # Display top correlations with warnings
             for col, r, p in top_results:
                 p_warn = " ‼️" if show_p_warnings and p < 1e-100 else ""
                 r_warn = " ⚠️" if show_r_warnings and abs(r) > 0.999 else ""
                 st.write(f"**{col}**: r = `{r:.4f}`, p = `{p:.2e}`{p_warn}{r_warn}")
 
-            # --- Heatmap ---
+            # Heatmap
             if show_heatmap:
                 with st.expander("📊 Heatmap of Top Correlated Variables", expanded=False):
                     st.subheader("Heatmap of Top Correlated Variables")
@@ -119,12 +119,14 @@ if file:
                     ax.set_title(f"Correlation Heatmap: '{y_var}' vs Top Variables")
                     st.pyplot(fig)
 
-            # --- Scatterplot Generator ---
+            # Scatterplot Generator
             with st.expander("📈 Interactive Scatterplot Generator", expanded=False):
                 st.subheader("Interactive Scatterplot Generator")
 
                 scatter_x = st.selectbox("Select X variable", all_columns, key="scatter_x")
-                scatter_y = st.selectbox("Select Y variable", numeric_columns, index=numeric_columns.index(y_var) if y_var in numeric_columns else 0, key="scatter_y")
+                scatter_y = st.selectbox("Select Y variable", numeric_columns,
+                                         index=numeric_columns.index(y_var) if y_var in numeric_columns else 0,
+                                         key="scatter_y")
                 show_regression = st.checkbox("Show regression line", value=False)
 
                 if scatter_x and scatter_y and scatter_x != scatter_y:
@@ -139,7 +141,7 @@ if file:
                         ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
                         st.pyplot(fig)
 
-                        # Correlation (only if x is numeric)
+                        # Show correlation if X numeric
                         if np.issubdtype(df_processed[scatter_x].dtype, np.number):
                             r_val, p_val = pearsonr(df_processed[scatter_x], df_encoded[scatter_y])
                             st.markdown(f"**Correlation (r)**: `{r_val:.4f}`  \n**p-value**: `{p_val:.2e}`")
@@ -149,7 +151,7 @@ if file:
                     except Exception as e:
                         st.error(f"Error rendering scatterplot: {e}")
 
-            # --- Predictive Modeling ---
+            # Predictive Modeling
             st.subheader("📈 Predictive Modeling")
 
             with st.expander("Train a simple regression model"):
@@ -158,10 +160,9 @@ if file:
                 pretty_labels = {col: col.replace("_ts", " (Date)") for col in numeric_columns}
                 predictor_display = [pretty_labels[col] for col in numeric_columns if col != y_var]
                 col_to_actual = {v: k for k, v in pretty_labels.items()}
-    
+
                 selected_labels = st.multiselect("Select predictor(s)", predictor_display)
                 predictors = [col_to_actual[label] for label in selected_labels]
-
 
                 if predictors:
                     X = df_encoded[predictors]
@@ -177,12 +178,12 @@ if file:
 
                         st.success("✅ Model trained successfully!")
 
-                        # Display metrics
+                        # Metrics
                         st.write("### Performance Metrics")
                         st.write(f"**R² Score:** {r2_score(y_test, y_pred):.4f}")
                         st.write(f"**Mean Squared Error (MSE):** {mean_squared_error(y_test, y_pred):.4f}")
 
-                        # Optional: Scatterplot of predictions vs actuals
+                        # Plot predicted vs actual
                         fig2, ax2 = plt.subplots()
                         ax2.scatter(y_test, y_pred, alpha=0.6)
                         ax2.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
@@ -194,7 +195,7 @@ if file:
                     except Exception as e:
                         st.error(f"Error training model: {e}")
 
-            # --- Predict future values ---
+            # Predict future values with new CSV
             if 'model' in locals() and predictors:
                 with st.expander("Predict Future Values"):
                     st.markdown("Upload new predictor data (CSV) with the same predictor columns to generate predictions.")
@@ -220,7 +221,8 @@ if file:
                                 st.download_button("Download predictions CSV", csv, "predictions.csv")
                             except Exception as e:
                                 st.error(f"Error during prediction: {e}")
-                                
+
+            # Auto Model Selection & Benchmarking with LazyRegressor
             with st.expander("🤖 Auto Model Selection & Benchmarking"):
                 st.markdown("This will run multiple regression models and show performance comparison. Feature scaling is applied.")
 
@@ -229,15 +231,12 @@ if file:
                         X = df_encoded[predictors]
                         y = df_encoded[y_var]
 
-                        # Train-test split
                         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-                        # Standardize features
                         scaler = StandardScaler()
                         X_train_scaled = scaler.fit_transform(X_train)
                         X_test_scaled = scaler.transform(X_test)
 
-                        # Run LazyRegressor
                         reg = LazyRegressor(verbose=0, ignore_warnings=True, custom_metric=None)
                         models, predictions = reg.fit(X_train_scaled, X_test_scaled, y_train, y_test)
 
@@ -250,8 +249,5 @@ if file:
                     except Exception as e:
                         st.error(f"Error during auto model selection: {e}")
 
-            
     except Exception as e:
         st.error(f"❌ Error loading file: {str(e)}")
-
-
