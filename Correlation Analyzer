@@ -1,0 +1,94 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
+
+st.set_page_config(layout="wide", page_title="Correlation Analyzer")
+
+st.title("📊 CSV/Excel Correlation Analyzer")
+
+st.markdown("Upload a file and select a target variable to see correlations and p-values.")
+
+# --- File uploader ---
+file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xls", "xlsx"])
+
+if file:
+    # --- Load data ---
+    try:
+        if file.name.endswith(".csv"):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
+
+        st.success("✅ File loaded successfully.")
+
+        # --- Preprocessing ---
+        df_encoded = pd.get_dummies(df, drop_first=True)
+        df_encoded = df_encoded.select_dtypes(include=[np.number])
+        df_encoded = df_encoded.loc[:, df_encoded.nunique() > 1]
+        
+        # Remove ID-like columns
+        exclude_cols = ['student_id', 'StudentID', 'ID']
+        for col in exclude_cols:
+            if col in df_encoded.columns:
+                df_encoded = df_encoded.drop(columns=col)
+        num_rows = df_encoded.shape[0]
+        df_encoded = df_encoded.loc[:, df_encoded.nunique() < num_rows]
+
+        numeric_columns = df_encoded.columns.tolist()
+
+        if not numeric_columns:
+            st.warning("No valid numeric columns found after preprocessing.")
+            st.stop()
+
+        # --- Sidebar options ---
+        st.sidebar.header("🔧 Settings")
+        y_var = st.sidebar.selectbox("Select Y variable", numeric_columns)
+        show_p_warnings = st.sidebar.checkbox("⚠️ Show tiny p-value warnings", True)
+        show_r_warnings = st.sidebar.checkbox("⚠️ Show high correlation warnings", True)
+        show_heatmap = st.sidebar.checkbox("🖼️ Show heatmap", True)
+        annotate_heatmap = st.sidebar.checkbox("🔢 Annotate heatmap", False)
+
+        # --- Perform analysis ---
+        if y_var:
+            st.subheader(f"Correlations with '{y_var}'")
+            x_vars = [col for col in numeric_columns if col != y_var]
+
+            results = []
+            progress = st.progress(0)
+            for i, col in enumerate(x_vars):
+                try:
+                    r, p = pearsonr(df_encoded[col], df_encoded[y_var])
+                    results.append((col, r, p))
+                except:
+                    continue
+                progress.progress((i+1)/len(x_vars))
+
+            if not results:
+                st.error("No valid correlations found.")
+                st.stop()
+
+            results.sort(key=lambda x: abs(x[1]), reverse=True)
+            top_results = results[:5]
+
+            # --- Display results ---
+            for col, r, p in top_results:
+                p_warn = " ‼️" if show_p_warnings and p < 1e-100 else ""
+                r_warn = " ⚠️" if show_r_warnings and abs(r) > 0.999 else ""
+                st.write(f"**{col}**: r = `{r:.4f}`, p = `{p:.2e}`{p_warn}{r_warn}")
+
+            # --- Heatmap ---
+            if show_heatmap:
+                st.subheader("Heatmap of Top Correlated Variables")
+                top_vars = [col for col, _, _ in top_results]
+                corr_data = df_encoded[[y_var] + top_vars].corr().fillna(0)
+
+                fig, ax = plt.subplots(figsize=(8, 6))
+                sns.heatmap(corr_data, annot=annotate_heatmap, cmap="coolwarm", center=0, ax=ax)
+                ax.set_title(f"Correlation Heatmap: '{y_var}' vs Top Variables")
+                st.pyplot(fig)
+
+    except Exception as e:
+        st.error(f"❌ Error loading file: {str(e)}")
