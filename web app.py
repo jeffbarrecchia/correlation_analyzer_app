@@ -4,6 +4,7 @@ Created on Tue May 20 13:07:41 2025
 
 @author: jeffb
 """
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -101,10 +102,14 @@ if file:
 
         scatter_x = st.selectbox("Select X variable", numeric_columns, key="scatter_x")
         scatter_y = st.selectbox("Select Y variable", numeric_columns, index=numeric_columns.index(y_var) if y_var in numeric_columns else 0, key="scatter_y")
+        show_regression = st.checkbox("Show regression line", value=False)
 
         if scatter_x and scatter_y and scatter_x != scatter_y:
             fig, ax = plt.subplots(figsize=(8, 6))
-            sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
+            if show_regression:
+                sns.regplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax, scatter_kws={"s": 50})
+            else:
+                sns.scatterplot(x=df_encoded[scatter_x], y=df_encoded[scatter_y], ax=ax)
             ax.set_xlabel(scatter_x)
             ax.set_ylabel(scatter_y)
             ax.set_title(f"Scatterplot: {scatter_x} vs {scatter_y}")
