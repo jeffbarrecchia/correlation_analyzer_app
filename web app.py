@@ -38,8 +38,6 @@ if file:
 
         # Keep track of original datetime columns
         datetime_cols = df_processed.select_dtypes(include=["datetime64", "datetime64[ns]"]).columns.tolist()
-        for col in datetime_cols:
-            df_processed[col + "_ts"] = pd.to_datetime(df_processed[col], errors = 'coerce'.map(lambda x: x.timestamp() if pd.notnull(x) else np.nan)
 
         # Convert object columns to datetime where possible
         for col in df_processed.columns:
