@@ -50,13 +50,6 @@ if file:
                 except:
                     pass
 
-        # Identify datetime columns
-        datetime_cols = df_processed.select_dtypes(include=["datetime64", "datetime64[ns]"]).columns.tolist()
-
-        # Convert datetime columns to numeric timestamps
-        for col in datetime_cols:
-            df_processed[col + "_ts"] = df_processed[col].map(lambda x: x.timestamp() if pd.notnull(x) else np.nan)
-
         df_encoded = pd.get_dummies(df_processed, drop_first=True)
         df_encoded = df_encoded.select_dtypes(include=[np.number])
         df_encoded = df_encoded.loc[:, df_encoded.nunique() > 1]
