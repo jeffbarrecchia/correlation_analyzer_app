@@ -172,6 +172,35 @@ if file:
                     except Exception as e:
                         st.error(f"Error training model: {e}")
 
+                    # --- Predict future values ---
+                    with st.expander("Predict Future Values"):
+                        st.markdown("Upload new predictor data (CSV) with the same predictor columns to generate predictions.")
+    
+                        pred_file = st.file_uploader("Upload predictor CSV for prediction", type=["csv"], key="pred_file")
+    
+                        if pred_file:
+                            pred_df = pd.read_csv(pred_file)
+        
+                            # Check if columns match
+                            missing_cols = [col for col in predictors if col not in pred_df.columns]
+                            if missing_cols:
+                                st.error(f"Uploaded data is missing columns: {missing_cols}")
+                            else:
+                                X_new = pred_df[predictors]
+                                try:
+                                    future_preds = model.predict(X_new)
+                                    pred_df["Predicted_" + y_var] = future_preds
+                
+                                    st.write("Predictions for the uploaded data:")
+                                    st.dataframe(pred_df)
+                
+                                    # Allow downloading results
+                                    csv = pred_df.to_csv(index=False).encode('utf-8')
+                                    st.download_button("Download predictions CSV", csv, "predictions.csv")
+                                except Exception as e:
+                                    st.error(f"Error during prediction: {e}")
+
+
     except Exception as e:
         st.error(f"❌ Error loading file: {str(e)}")
 
