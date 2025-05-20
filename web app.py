@@ -60,23 +60,7 @@ if file:
         df_encoded = pd.get_dummies(df_processed, drop_first=True)
         df_encoded = df_encoded.select_dtypes(include=[np.number])
         df_encoded = df_encoded.loc[:, df_encoded.nunique() > 1]
-
-        # Remove ID-like columns
-        exclude_cols = ['student_id', 'StudentID', 'ID']
-        for col in exclude_cols:
-            if col in df_encoded.columns:
-                df_encoded = df_encoded.drop(columns=col)
-
-        num_rows = df_encoded.shape[0]
-        df_encoded = df_encoded.loc[:, df_encoded.nunique() < num_rows]
-
-        numeric_columns = df_encoded.columns.tolist()
-        all_columns = df_processed.columns.tolist()
-
-        if not numeric_columns:
-            st.warning("No valid numeric columns found after preprocessing.")
-            st.stop()
-
+        
         # --- Sidebar options ---
         st.sidebar.header("🔧 Settings")
         y_var = st.sidebar.selectbox("Select Y variable", numeric_columns)
